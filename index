@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Responsáveis · 9mm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/monday-sdk-js@0.5.9/dist/main.js"></script>
+<script>
+  /* ================= CONFIGURAÇÃO =================
+     IDs das colunas de pessoas (veja em "verificar configuração" do Abrir Job).
+     Se deixar vazio, o app procura pela coluna de pessoas com o título abaixo. */
+  const CONFIG = {
+    colunaSubelemento: "",          // ID da coluna Resp. do SUBELEMENTO
+    colunaItem: "",                 // ID da coluna Resp. do ITEM (recebe a soma)
+    tituloSubelemento: "Resp.",
+    tituloItem: "Resp."
+  };
+</script>
+<style>
+  /* Lista de pessoas no estilo do seletor do Monday: busca no topo, escolhidos primeiro */
+  :root{
+    --bg:#ffffff; --panel:#f6f7fb; --line:#d0d4e4; --text:#323338; --muted:#676879;
+    --accent:#0073ea; --accent-soft:#e6f0ff; --ok:#00854d; --err:#d83a52; --hover:#f0f1f6;
+    --font:Figtree,"Segoe UI",Roboto,Arial,sans-serif;
+  }
+  :root[data-theme="dark"]{
+    --bg:#181b34; --panel:#22264a; --line:#3b4067; --text:#d5d8df; --muted:#9699a6;
+    --accent:#579bfc; --accent-soft:#2a3561; --ok:#00c875; --err:#f65f7c; --hover:#262a4f; color-scheme:dark;
+  }
+  :root[data-theme="black"]{
+    --bg:#111111; --panel:#1b1b1b; --line:#383838; --text:#e8e8e8; --muted:#9a9a9a;
+    --accent:#579bfc; --accent-soft:#1f2a40; --ok:#00c875; --err:#f65f7c; --hover:#202020; color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--text);font:14px/1.4 var(--font);display:flex;flex-direction:column}
+  header{padding:14px 16px 10px;border-bottom:1px solid var(--line)}
+  h1{margin:0;font-size:15px;font-weight:600}
+  .sub{margin:2px 0 0;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .busca{margin:10px 0 0;width:100%;font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px 10px;outline:none}
+  .busca:focus{border-color:var(--accent)}
+  main{flex:1;overflow:auto;padding:6px 8px 10px}
+  .secao{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:10px 8px 4px}
+  .pessoa{display:flex;align-items:center;gap:10px;width:100%;font:inherit;color:inherit;background:none;border:0;border-radius:4px;padding:6px 8px;cursor:pointer;text-align:left}
+  .pessoa:hover{background:var(--hover)}
+  .pessoa:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .pessoa[disabled]{opacity:.6;cursor:default}
+  .foto{width:28px;height:28px;border-radius:50%;flex:0 0 28px;background:var(--panel);object-fit:cover;display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--muted)}
+  .nome{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .marca{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--line);flex:0 0 18px;display:grid;place-items:center;font-size:12px;color:#fff}
+  .pessoa.sel .marca{background:var(--accent);border-color:var(--accent)}
+  .pessoa.sel .marca::after{content:"✓"}
+  .vazio,.carregando{color:var(--muted);text-align:center;padding:24px 8px}
+  footer{border-top:1px solid var(--line);padding:8px 16px;font-size:12px;color:var(--muted);min-height:34px;display:flex;align-items:center;gap:6px}
+  footer.ok{color:var(--ok)} footer.err{color:var(--err)}
+  .aviso{margin:10px 8px;padding:10px 12px;border-radius:6px;background:var(--panel);border:1px solid var(--line);font-size:13px}
+  @media (prefers-reduced-motion:no-preference){.pessoa{transition:background .1s}}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="titulo">Responsáveis</h1>
+  <p class="sub" id="subtitulo">Carregando…</p>
+  <input id="busca" class="busca" type="search" placeholder="Buscar pessoa" autocomplete="off">
+</header>
+<main id="lista"><div class="carregando">Carregando pessoas…</div></main>
+<footer id="status">Escolha quem participa deste subelemento.</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+const gq = s => JSON.stringify(String(s));
+
+const monday = window.mondaySdk ? window.mondaySdk() : null;
+function api(query, variables){
+  if (!monday) return Promise.reject(new Error("SDK do Monday não carregou."));
+  return Promise.race([
+    monday.api(query, variables ? { variables } : undefined).then(r => {
+      if (r && r.errors && r.errors.length) throw new Error(r.errors.map(e => e.message).join(" | "));
+      return r.data;
+    }),
+    new Promise((_, rej) => setTimeout(() => rej(new Error("Sem resposta do Monday. Abra pelo Monday.")), 15000))
+  ]);
+}
+
+let ESTADO = { itemId: null, sub: null, pai: null, colSub: null, colPai: null, selecionados: [], usuarios: [], salvando: false };
+
+function status(msg, tipo){ const f = $("status"); f.textContent = msg; f.className = tipo || ""; }
+
+/* ---------- pessoas no valor da coluna ---------- */
+const pessoasDe = cv => ((cv && cv.persons_and_teams) || []).map(p => ({ id: Number(p.id), kind: p.kind }));
+const chaveP = p => `${p.kind}:${p.id}`;
+function juntar(listas){ const m = new Map(); for (const l of listas) for (const p of l) m.set(chaveP(p), p); return [...m.values()]; }
+
+/* ---------- escolher as colunas ---------- */
+function acharColuna(colunas, id, titulo){
+  if (id) return colunas.find(c => c.id === id) || null;
+  const pessoas = colunas.filter(c => c.type === "people");
+  return pessoas.find(c => norm(c.title) === norm(titulo)) || (pessoas.length === 1 ? pessoas[0] : null);
+}
+
+/* ---------- carregar o subelemento ---------- */
+async function carregar(itemId, colunaDoContexto){
+  ESTADO.itemId = itemId;
+  status("Carregando…");
+  const d = await api(`query ($id: [ID!]) { items(ids: $id) {
+      id name board { id columns { id title type } }
+      parent_item { id name board { id columns { id title type } } }
+    } }`, { id: [String(itemId)] });
+  const it = (d.items || [])[0];
+  if (!it) throw new Error("Não encontrei este item.");
+  if (!it.parent_item){
+    $("subtitulo").textContent = it.name;
+    $("lista").innerHTML = `<div class="aviso">Este app é para a coluna de pessoas dos <b>subelementos</b>. No item principal, as pessoas são preenchidas sozinhas com a soma dos subelementos.</div>`;
+    status("");
+    return;
+  }
+  ESTADO.sub = it; ESTADO.pai = it.parent_item;
+  ESTADO.colSub = acharColuna(it.board.columns, CONFIG.colunaSubelemento || colunaDoContexto, CONFIG.tituloSubelemento);
+  ESTADO.colPai = acharColuna(it.parent_item.board.columns, CONFIG.colunaItem, CONFIG.tituloItem);
+  if (!ESTADO.colSub) throw new Error(`Não achei a coluna de pessoas "${CONFIG.tituloSubelemento}" no subelemento.`);
+  if (!ESTADO.colPai) throw new Error(`Não achei a coluna de pessoas "${CONFIG.tituloItem}" no item.`);
+
+  $("titulo").textContent = ESTADO.colSub.title;
+  $("subtitulo").textContent = `${it.name} · em ${it.parent_item.name}`;
+
+  const v = await api(`query ($id: [ID!]) { items(ids: $id) { column_values(ids: [${gq(ESTADO.colSub.id)}]) { ... on PeopleValue { persons_and_teams { id kind } } } } }`, { id: [String(it.id)] });
+  ESTADO.selecionados = pessoasDe(v.items[0].column_values[0]);
+
+  if (!ESTADO.usuarios.length){
+    const u = await api(`query { users(kind: non_guests, limit: 500) { id name enabled photo_thumb_small } }`);
+    ESTADO.usuarios = (u.users || []).filter(x => x.enabled !== false).map(x => ({ id: Number(x.id), nome: x.name, foto: x.photo_thumb_small }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt"));
+  }
+  desenhar();
+  status("Escolha quem participa deste subelemento.");
+}
+
+/* ---------- lista ---------- */
+function linha(u, sel){
+  const ini = u.nome.split(/\s+/).map(p => p[0]).slice(0, 2).join("").toUpperCase();
+  const foto = u.foto ? `<img class="foto" src="${esc(u.foto)}" alt="">` : `<span class="foto">${esc(ini)}</span>`;
+  return `<button type="button" class="pessoa${sel ? " sel" : ""}" data-id="${u.id}" role="checkbox" aria-checked="${sel}" ${ESTADO.salvando ? "disabled" : ""}>
+    ${foto}<span class="nome">${esc(u.nome)}</span><span class="marca"></span></button>`;
+}
+function desenhar(){
+  const q = norm($("busca").value);
+  const selIds = new Set(ESTADO.selecionados.filter(p => p.kind === "person").map(p => p.id));
+  const bate = u => !q || norm(u.nome).includes(q);
+  const sel = ESTADO.usuarios.filter(u => selIds.has(u.id) && bate(u));
+  const resto = ESTADO.usuarios.filter(u => !selIds.has(u.id) && bate(u));
+  let h = "";
+  if (sel.length) h += `<div class="secao">Neste subelemento</div>` + sel.map(u => linha(u, true)).join("");
+  if (resto.length) h += `<div class="secao">Pessoas</div>` + resto.map(u => linha(u, false)).join("");
+  if (!h) h = `<div class="vazio">Ninguém encontrado com "${esc($("busca").value)}".</div>`;
+  $("lista").innerHTML = h;
+}
+$("busca").addEventListener("input", desenhar);
+
+$("lista").addEventListener("click", async e => {
+  const b = e.target.closest(".pessoa"); if (!b || ESTADO.salvando) return;
+  const id = Number(b.dataset.id);
+  const antes = ESTADO.selecionados.slice();
+  const tem = antes.some(p => p.kind === "person" && p.id === id);
+  ESTADO.selecionados = tem ? antes.filter(p => !(p.kind === "person" && p.id === id)) : [...antes, { id, kind: "person" }];
+  ESTADO.salvando = true; desenhar();
+  const nome = (ESTADO.usuarios.find(u => u.id === id) || {}).nome || "Pessoa";
+  status(tem ? `Tirando ${nome}…` : `Colocando ${nome}…`);
+  try{
+    const mudouItem = await salvar();
+    const extra = mudouItem ? "Item atualizado." : (tem ? "Continua no item (está em outro subelemento)." : "Já estava no item.");
+    status(`${nome} ${tem ? "saiu" : "entrou"}. ${extra}`, "ok");
+  }catch(err){
+    ESTADO.selecionados = antes;
+    status(`Não salvou: ${err.message}`, "err");
+  }finally{ ESTADO.salvando = false; desenhar(); }
+});
+
+/* ---------- gravar no subelemento e recalcular o item ---------- */
+async function salvar(){
+  const s = ESTADO.sub, p = ESTADO.pai;
+  await api(`mutation ($b: ID!, $i: ID!, $c: String!, $v: JSON!) { change_column_value(board_id: $b, item_id: $i, column_id: $c, value: $v) { id } }`,
+    { b: String(s.board.id), i: String(s.id), c: ESTADO.colSub.id, v: JSON.stringify({ personsAndTeams: ESTADO.selecionados }) });
+
+  // soma de todos os subelementos (lida de novo, para pegar mudanças feitas por outras pessoas)
+  const d = await api(`query ($id: [ID!]) { items(ids: $id) {
+      column_values(ids: [${gq(ESTADO.colPai.id)}]) { ... on PeopleValue { persons_and_teams { id kind } } }
+      subitems { id column_values(ids: [${gq(ESTADO.colSub.id)}]) { ... on PeopleValue { persons_and_teams { id kind } } } }
+    } }`, { id: [String(p.id)] });
+  const it = d.items[0];
+  const soma = juntar((it.subitems || []).map(x => String(x.id) === String(s.id) ? ESTADO.selecionados : pessoasDe(x.column_values[0])));
+  const atuais = pessoasDe(it.column_values[0]);
+  const k = l => l.map(chaveP).sort().join(",");
+  if (k(soma) === k(atuais)) return false;
+  await api(`mutation ($b: ID!, $i: ID!, $c: String!, $v: JSON!) { change_column_value(board_id: $b, item_id: $i, column_id: $c, value: $v) { id } }`,
+    { b: String(p.board.id), i: String(p.id), c: ESTADO.colPai.id, v: JSON.stringify({ personsAndTeams: soma }) });
+  return true;
+}
+
+/* ---------- contexto do Monday ---------- */
+function aplicarTema(t){ document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : t === "black" ? "black" : "light"); }
+function aoContexto(ctx){
+  if (!ctx) return;
+  aplicarTema(ctx.theme);
+  const itemId = ctx.itemId || ctx.pulseId || (ctx.itemIds && ctx.itemIds[0]);
+  if (!itemId){ $("lista").innerHTML = `<div class="aviso">Abra este app a partir da coluna de pessoas de um subelemento.</div>`; $("subtitulo").textContent = ""; status(""); return; }
+  if (String(itemId) === String(ESTADO.itemId)) return;
+  carregar(itemId, ctx.columnId).catch(err => { $("lista").innerHTML = `<div class="aviso">${esc(err.message)}</div>`; status("Erro ao carregar.", "err"); });
+}
+if (monday){
+  monday.listen("context", res => aoContexto(res && res.data));
+  monday.get("context").then(res => aoContexto(res && res.data)).catch(() => {});
+  setTimeout(() => { if (!ESTADO.itemId && $("subtitulo").textContent === "Carregando…"){ $("subtitulo").textContent = ""; $("lista").innerHTML = `<div class="aviso">Sem resposta do Monday. Abra este app pela coluna de pessoas de um subelemento.</div>`; status(""); } }, 8000);
+} else {
+  $("lista").innerHTML = `<div class="aviso">O SDK do Monday não carregou.</div>`;
+}
+</script>
+</body>
+</html>
