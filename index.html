@@ -66,6 +66,7 @@
   <input id="busca" class="busca" type="search" placeholder="Buscar pessoa" autocomplete="off">
 </header>
 <main id="lista"><div class="carregando">Carregando pessoas…</div></main>
+<p id="diag" style="margin:0;padding:4px 16px;font-size:10px;color:var(--muted);border-top:1px solid var(--line);word-break:break-all"></p>
 <footer id="status">Escolha quem participa deste subelemento.</footer>
 
 <script>
@@ -86,6 +87,7 @@ function api(query, variables){
   ]);
 }
 
+let CTX = {};
 let ESTADO = { itemId: null, sub: null, pai: null, colSub: null, colPai: null, selecionados: [], usuarios: [], salvando: false };
 
 function status(msg, tipo){ const f = $("status"); f.textContent = msg; f.className = tipo || ""; }
@@ -97,7 +99,7 @@ function juntar(listas){ const m = new Map(); for (const l of listas) for (const
 
 /* ---------- escolher as colunas ---------- */
 function acharColuna(colunas, id, titulo){
-  if (id) return colunas.find(c => c.id === id) || null;
+  if (id){ const c = colunas.find(c => c.id === id); if (c) return c; }
   const pessoas = colunas.filter(c => c.type === "people");
   return pessoas.find(c => norm(c.title) === norm(titulo)) || (pessoas.length === 1 ? pessoas[0] : null);
 }
@@ -126,6 +128,7 @@ async function carregar(itemId, colunaDoContexto){
 
   $("titulo").textContent = ESTADO.colSub.title;
   $("subtitulo").textContent = `${it.name} · em ${it.parent_item.name}`;
+  $("diag").textContent = `Grava em: ${ESTADO.colSub.title} [${ESTADO.colSub.id}, ${ESTADO.colSub.type}] → item: ${ESTADO.colPai.title} [${ESTADO.colPai.id}] · coluna clicada: ${colunaDoContexto || "não informada"}`;
 
   const v = await api(`query ($id: [ID!]) { items(ids: $id) { column_values(ids: [${gq(ESTADO.colSub.id)}]) { ... on PeopleValue { persons_and_teams { id kind } } } } }`, { id: [String(it.id)] });
   ESTADO.selecionados = pessoasDe(v.items[0].column_values[0]);
@@ -205,10 +208,11 @@ function aplicarTema(t){ document.documentElement.setAttribute("data-theme", t =
 function aoContexto(ctx){
   if (!ctx) return;
   aplicarTema(ctx.theme);
+  CTX = ctx;
   const itemId = ctx.itemId || ctx.pulseId || (ctx.itemIds && ctx.itemIds[0]);
   if (!itemId){ $("lista").innerHTML = `<div class="aviso">Abra este app a partir da coluna de pessoas de um subelemento.</div>`; $("subtitulo").textContent = ""; status(""); return; }
   if (String(itemId) === String(ESTADO.itemId)) return;
-  carregar(itemId, ctx.columnId).catch(err => { $("lista").innerHTML = `<div class="aviso">${esc(err.message)}</div>`; status("Erro ao carregar.", "err"); });
+  carregar(itemId, ctx.columnId || ctx.column_id || (ctx.column && ctx.column.id)).catch(err => { $("lista").innerHTML = `<div class="aviso">${esc(err.message)}</div>`; status("Erro ao carregar.", "err"); });
 }
 if (monday){
   monday.listen("context", res => aoContexto(res && res.data));
