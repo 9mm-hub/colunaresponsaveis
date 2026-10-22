@@ -150,9 +150,15 @@ async function modoItem(it, colunaDoContexto){
   $("subtitulo").textContent = it.name;
   const cols0 = it.board.columns;
   let colItem = cols0.find(c => c.id === (colunaDoContexto || CONFIG.colunaItem)) || null;
-  if (!colItem) colItem = cols0.find(c => CONFIG.titulosItem.some(ti => norm(c.title).startsWith(norm(ti)))) || null;
-  if (colItem && norm(colItem.title) === norm(CONFIG.tituloSubelemento) && !CONFIG.colunaItem) colItem = null; // nunca grava na Resp. nativa
-  if (!colItem) throw new Error(`Não achei a coluna do app no item (títulos: ${CONFIG.titulosItem.join(", ")}). Cole o ID dela em CONFIG.colunaItem.`);
+  if (!colItem){
+    // 1º: nomes da coluna do app; 2º: uma única coluna de pessoas chamada "Resp." no item
+    colItem = cols0.find(c => CONFIG.titulosItem.some(ti => norm(c.title).startsWith(norm(ti)))) || null;
+    if (!colItem){
+      const resp = cols0.filter(c => c.type === "people" && norm(c.title) === norm(CONFIG.tituloSubelemento));
+      if (resp.length === 1) colItem = resp[0];
+    }
+  }
+  if (!colItem) throw new Error(`Não achei a coluna do app no item. Colunas de pessoas do item: ${cols0.filter(c => c.type === "people").map(c => `${c.title} [${c.id}]`).join(", ") || "nenhuma"}. Cole o ID certo em CONFIG.colunaItem.`);
   const d = await api(`query ($id: [ID!]) { items(ids: $id) {
       column_values(ids: [${gq(colItem.id)}]) { ... on PeopleValue { persons_and_teams { id kind } } }
       subitems { id name board { id columns { id title type } } }
@@ -164,7 +170,7 @@ async function modoItem(it, colunaDoContexto){
   const colSub = acharColuna(cols, CONFIG.colunaSubelemento, CONFIG.tituloSubelemento);
   const colFun = cols.find(c => norm(c.title) === norm(CONFIG.tituloFuncao));
   if (!colSub) throw new Error(`Não achei a coluna de pessoas "${CONFIG.tituloSubelemento}" nos subelementos.`);
-  $("diag").textContent = `Lê: ${colSub.title} [${colSub.id}] dos subelementos → grava em: ${colItem.title} [${colItem.id}]`;
+  $("diag").textContent = `Lê: ${colSub.title} [${colSub.id}] dos subelementos → grava em: ${colItem.title} [${colItem.id}] · contexto: ${Object.keys(CTX || {}).join(",")}`;
 
   const ids = [colSub.id, ...(colFun ? [colFun.id] : [])].map(gq).join(",");
   const v = await api(`query ($id: [ID!]) { items(ids: $id) { id name column_values(ids: [${ids}]) { id text ... on PeopleValue { persons_and_teams { id kind } } } } }`,
