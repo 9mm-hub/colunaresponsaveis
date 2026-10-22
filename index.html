@@ -13,9 +13,9 @@
      Se deixar vazio, o app procura pela coluna de pessoas com o título abaixo. */
   const CONFIG = {
     colunaSubelemento: "",          // ID da coluna Resp. do SUBELEMENTO
-    colunaItem: "",                 // ID da coluna Resp. do ITEM (recebe a soma)
+    colunaItem: "",                 // ID da coluna DO APP no ITEM (recebe a soma). Vazio = procura pelos títulos abaixo
     tituloSubelemento: "Resp.",
-    tituloItem: "Resp.",
+    titulosItem: ["Envolvidos", "People column", "Coluna Resp", "Resp. 9mm"],   // NUNCA a Resp. nativa
     tituloFuncao: "Função"          // coluna do subelemento mostrada ao lado de cada pessoa
   };
 </script>
@@ -56,7 +56,7 @@
   .pessoa.sel .marca::after{content:"✓"}
   .vazio,.carregando{color:var(--muted);text-align:center;padding:24px 8px}
   .aviso{margin:8px;padding:10px 12px;border-radius:4px;background:var(--hover);font-size:13px}
-  #diag{display:none}
+  #diag{margin:0;padding:2px 16px;font-size:10px;color:var(--muted);word-break:break-all}
   footer{padding:6px 16px 10px;font-size:12px;color:var(--muted);min-height:28px}
   footer.ok{color:var(--ok)} footer.err{color:var(--err)}
 </style>
@@ -117,11 +117,16 @@ async function carregar(itemId, colunaDoContexto){
   const it = (d.items || [])[0];
   if (!it) throw new Error("Não encontrei este item.");
   if (!it.parent_item) return modoItem(it, colunaDoContexto);
+  $("busca").hidden = true;
+  $("subtitulo").textContent = it.name;
+  $("lista").innerHTML = `<div class="aviso">Esta coluna é do <b>item principal</b>. Nos subelementos, use a coluna <b>${esc(CONFIG.tituloSubelemento)}</b> normal do Monday. As pessoas aparecem sozinhas no item.</div>`;
+  status("");
+  return;
   ESTADO.sub = it; ESTADO.pai = it.parent_item;
   ESTADO.colSub = acharColuna(it.board.columns, CONFIG.colunaSubelemento || colunaDoContexto, CONFIG.tituloSubelemento);
-  ESTADO.colPai = acharColuna(it.parent_item.board.columns, CONFIG.colunaItem, CONFIG.tituloItem);
+  ESTADO.colPai = null;
   if (!ESTADO.colSub) throw new Error(`Não achei a coluna de pessoas "${CONFIG.tituloSubelemento}" no subelemento.`);
-  if (!ESTADO.colPai) throw new Error(`Não achei a coluna de pessoas "${CONFIG.tituloItem}" no item.`);
+  
 
   $("titulo").textContent = ESTADO.colSub.title;
   $("subtitulo").textContent = `${it.name} · em ${it.parent_item.name}`;
@@ -143,8 +148,11 @@ async function carregar(itemId, colunaDoContexto){
 async function modoItem(it, colunaDoContexto){
   $("titulo").textContent = "Envolvidos no job";
   $("subtitulo").textContent = it.name;
-  const colItem = acharColuna(it.board.columns, colunaDoContexto || CONFIG.colunaItem, CONFIG.tituloItem);
-  if (!colItem) throw new Error("Não achei a coluna do item onde gravar.");
+  const cols0 = it.board.columns;
+  let colItem = cols0.find(c => c.id === (colunaDoContexto || CONFIG.colunaItem)) || null;
+  if (!colItem) colItem = cols0.find(c => CONFIG.titulosItem.some(ti => norm(c.title).startsWith(norm(ti)))) || null;
+  if (colItem && norm(colItem.title) === norm(CONFIG.tituloSubelemento) && !CONFIG.colunaItem) colItem = null; // nunca grava na Resp. nativa
+  if (!colItem) throw new Error(`Não achei a coluna do app no item (títulos: ${CONFIG.titulosItem.join(", ")}). Cole o ID dela em CONFIG.colunaItem.`);
   const d = await api(`query ($id: [ID!]) { items(ids: $id) {
       column_values(ids: [${gq(colItem.id)}]) { ... on PeopleValue { persons_and_teams { id kind } } }
       subitems { id name board { id columns { id title type } } }
