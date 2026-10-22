@@ -15,55 +15,57 @@
     colunaSubelemento: "",          // ID da coluna Resp. do SUBELEMENTO
     colunaItem: "",                 // ID da coluna Resp. do ITEM (recebe a soma)
     tituloSubelemento: "Resp.",
-    tituloItem: "Resp."
+    tituloItem: "Resp.",
+    tituloFuncao: "Função"          // coluna do subelemento mostrada ao lado de cada pessoa
   };
 </script>
 <style>
-  /* Lista de pessoas no estilo do seletor do Monday: busca no topo, escolhidos primeiro */
+  /* Visual do seletor de pessoas nativo do Monday: busca no topo, rótulo cinza, linhas com avatar redondo */
   :root{
-    --bg:#ffffff; --panel:#f6f7fb; --line:#d0d4e4; --text:#323338; --muted:#676879;
-    --accent:#0073ea; --accent-soft:#e6f0ff; --ok:#00854d; --err:#d83a52; --hover:#f0f1f6;
-    --font:Figtree,"Segoe UI",Roboto,Arial,sans-serif;
+    --bg:#ffffff; --hover:#dcdfec; --line:#c3c6d4; --text:#323338; --muted:#676879;
+    --focus:#0073ea; --ok:#00854d; --err:#d83a52; --avatar:#e6e9ef;
+    --font:Figtree,Roboto,"Segoe UI",Arial,sans-serif;
   }
   :root[data-theme="dark"]{
-    --bg:#181b34; --panel:#22264a; --line:#3b4067; --text:#d5d8df; --muted:#9699a6;
-    --accent:#579bfc; --accent-soft:#2a3561; --ok:#00c875; --err:#f65f7c; --hover:#262a4f; color-scheme:dark;
+    --bg:#30324e; --hover:#4b4e69; --line:#797e93; --text:#d5d8df; --muted:#9699a6;
+    --focus:#579bfc; --ok:#00c875; --err:#f65f7c; --avatar:#4b4e69; color-scheme:dark;
   }
   :root[data-theme="black"]{
-    --bg:#111111; --panel:#1b1b1b; --line:#383838; --text:#e8e8e8; --muted:#9a9a9a;
-    --accent:#579bfc; --accent-soft:#1f2a40; --ok:#00c875; --err:#f65f7c; --hover:#202020; color-scheme:dark;
+    --bg:#2c2c2c; --hover:#3e3e44; --line:#5b5b5f; --text:#eeeeee; --muted:#8d8d8d;
+    --focus:#1f76c2; --ok:#00c875; --err:#f65f7c; --avatar:#3e3e44; color-scheme:dark;
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%}
-  body{background:var(--bg);color:var(--text);font:14px/1.4 var(--font);display:flex;flex-direction:column}
-  header{padding:14px 16px 10px;border-bottom:1px solid var(--line)}
-  h1{margin:0;font-size:15px;font-weight:600}
-  .sub{margin:2px 0 0;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .busca{margin:10px 0 0;width:100%;font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px 10px;outline:none}
-  .busca:focus{border-color:var(--accent)}
-  main{flex:1;overflow:auto;padding:6px 8px 10px}
-  .secao{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:10px 8px 4px}
-  .pessoa{display:flex;align-items:center;gap:10px;width:100%;font:inherit;color:inherit;background:none;border:0;border-radius:4px;padding:6px 8px;cursor:pointer;text-align:left}
+  body{background:var(--bg);color:var(--text);font:14px/20px var(--font);display:flex;flex-direction:column}
+  header{padding:12px 12px 4px}
+  #titulo,#subtitulo{display:none}
+  .busca{width:100%;font:inherit;color:var(--text);background:transparent;border:1px solid var(--line);border-radius:4px;padding:7px 12px;outline:none}
+  .busca::placeholder{color:var(--muted)}
+  .busca:focus{border-color:var(--focus);box-shadow:0 0 0 1px var(--focus)}
+  main{flex:1;overflow:auto;padding:0 8px 8px}
+  .secao{font-size:14px;color:var(--muted);padding:10px 8px 6px}
+  .pessoa{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;font:inherit;color:inherit;background:none;border:0;border-radius:4px;padding:6px 8px;cursor:pointer;text-align:left}
   .pessoa:hover{background:var(--hover)}
-  .pessoa:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .pessoa:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
   .pessoa[disabled]{opacity:.6;cursor:default}
-  .foto{width:28px;height:28px;border-radius:50%;flex:0 0 28px;background:var(--panel);object-fit:cover;display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--muted)}
-  .nome{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .marca{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--line);flex:0 0 18px;display:grid;place-items:center;font-size:12px;color:#fff}
-  .pessoa.sel .marca{background:var(--accent);border-color:var(--accent)}
+  .foto{width:26px;height:26px;border-radius:50%;flex:0 0 26px;background:var(--avatar);object-fit:cover;display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--text)}
+  .nome{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+  .nome .funcao{font-weight:400;color:var(--muted)}
+  .marca{width:16px;height:16px;border-radius:3px;border:1px solid var(--line);flex:0 0 16px;display:grid;place-items:center;font-size:11px;color:#fff}
+  .pessoa.sel .marca{background:var(--focus);border-color:var(--focus)}
   .pessoa.sel .marca::after{content:"✓"}
   .vazio,.carregando{color:var(--muted);text-align:center;padding:24px 8px}
-  footer{border-top:1px solid var(--line);padding:8px 16px;font-size:12px;color:var(--muted);min-height:34px;display:flex;align-items:center;gap:6px}
+  .aviso{margin:8px;padding:10px 12px;border-radius:4px;background:var(--hover);font-size:13px}
+  #diag{display:none}
+  footer{padding:6px 16px 10px;font-size:12px;color:var(--muted);min-height:28px}
   footer.ok{color:var(--ok)} footer.err{color:var(--err)}
-  .aviso{margin:10px 8px;padding:10px 12px;border-radius:6px;background:var(--panel);border:1px solid var(--line);font-size:13px}
-  @media (prefers-reduced-motion:no-preference){.pessoa{transition:background .1s}}
 </style>
 </head>
 <body>
 <header>
   <h1 id="titulo">Responsáveis</h1>
   <p class="sub" id="subtitulo">Carregando…</p>
-  <input id="busca" class="busca" type="search" placeholder="Buscar pessoa" autocomplete="off">
+  <input id="busca" class="busca" type="search" placeholder="Pesquise nomes ou funções" autocomplete="off">
 </header>
 <main id="lista"><div class="carregando">Carregando pessoas…</div></main>
 <p id="diag" style="margin:0;padding:4px 16px;font-size:10px;color:var(--muted);border-top:1px solid var(--line);word-break:break-all"></p>
@@ -114,12 +116,7 @@ async function carregar(itemId, colunaDoContexto){
     } }`, { id: [String(itemId)] });
   const it = (d.items || [])[0];
   if (!it) throw new Error("Não encontrei este item.");
-  if (!it.parent_item){
-    $("subtitulo").textContent = it.name;
-    $("lista").innerHTML = `<div class="aviso">Este app é para a coluna de pessoas dos <b>subelementos</b>. No item principal, as pessoas são preenchidas sozinhas com a soma dos subelementos.</div>`;
-    status("");
-    return;
-  }
+  if (!it.parent_item) return modoItem(it, colunaDoContexto);
   ESTADO.sub = it; ESTADO.pai = it.parent_item;
   ESTADO.colSub = acharColuna(it.board.columns, CONFIG.colunaSubelemento || colunaDoContexto, CONFIG.tituloSubelemento);
   ESTADO.colPai = acharColuna(it.parent_item.board.columns, CONFIG.colunaItem, CONFIG.tituloItem);
@@ -142,6 +139,73 @@ async function carregar(itemId, colunaDoContexto){
   status("Escolha quem participa deste subelemento.");
 }
 
+/* ---------- MODO ITEM: soma das pessoas dos subelementos (coluna nativa) ---------- */
+async function modoItem(it, colunaDoContexto){
+  $("titulo").textContent = "Envolvidos no job";
+  $("subtitulo").textContent = it.name;
+  const colItem = acharColuna(it.board.columns, colunaDoContexto || CONFIG.colunaItem, CONFIG.tituloItem);
+  if (!colItem) throw new Error("Não achei a coluna do item onde gravar.");
+  const d = await api(`query ($id: [ID!]) { items(ids: $id) {
+      column_values(ids: [${gq(colItem.id)}]) { ... on PeopleValue { persons_and_teams { id kind } } }
+      subitems { id name board { id columns { id title type } } }
+    } }`, { id: [String(it.id)] });
+  const dados = d.items[0];
+  const subs = dados.subitems || [];
+  if (!subs.length){ $("lista").innerHTML = `<div class="aviso">Este job ainda não tem subelementos.</div>`; status(""); return; }
+  const cols = subs[0].board.columns;
+  const colSub = acharColuna(cols, CONFIG.colunaSubelemento, CONFIG.tituloSubelemento);
+  const colFun = cols.find(c => norm(c.title) === norm(CONFIG.tituloFuncao));
+  if (!colSub) throw new Error(`Não achei a coluna de pessoas "${CONFIG.tituloSubelemento}" nos subelementos.`);
+  $("diag").textContent = `Lê: ${colSub.title} [${colSub.id}] dos subelementos → grava em: ${colItem.title} [${colItem.id}]`;
+
+  const ids = [colSub.id, ...(colFun ? [colFun.id] : [])].map(gq).join(",");
+  const v = await api(`query ($id: [ID!]) { items(ids: $id) { id name column_values(ids: [${ids}]) { id text ... on PeopleValue { persons_and_teams { id kind } } } } }`,
+    { id: subs.map(s => String(s.id)) });
+  // quem faz o quê
+  const porPessoa = new Map();
+  for (const s of v.items || []){
+    const pv = (s.column_values || []).find(c => c.id === colSub.id);
+    const fun = colFun ? ((s.column_values || []).find(c => c.id === colFun.id) || {}).text : "";
+    for (const p of pessoasDe(pv)){
+      const k = chaveP(p);
+      if (!porPessoa.has(k)) porPessoa.set(k, { p, funcoes: [] });
+      porPessoa.get(k).funcoes.push(fun || s.name);
+    }
+  }
+  const soma = [...porPessoa.values()].map(x => x.p);
+
+  if (!ESTADO.usuarios.length){
+    const u = await api(`query { users(kind: non_guests, limit: 500) { id name enabled photo_thumb_small } }`);
+    ESTADO.usuarios = (u.users || []).map(x => ({ id: Number(x.id), nome: x.name, foto: x.photo_thumb_small }));
+  }
+  const nomeDe = id => (ESTADO.usuarios.find(u => u.id === id) || {}).nome || `Pessoa ${id}`;
+  const fotoDe = id => (ESTADO.usuarios.find(u => u.id === id) || {}).foto;
+  const lista = [...porPessoa.values()].sort((a, b) => nomeDe(a.p.id).localeCompare(nomeDe(b.p.id), "pt"));
+  ESTADO.itemLista = lista.map(x => ({ id: x.p.id, nome: nomeDe(x.p.id), foto: fotoDe(x.p.id), funcoes: [...new Set(x.funcoes)].filter(Boolean) }));
+  ESTADO.modo = "item";
+  desenharItem();
+
+  const atuais = pessoasDe(dados.column_values[0]);
+  const k = l => l.map(chaveP).sort().join(",");
+  if (k(soma) === k(atuais)){ status("Já está atualizado.", "ok"); return; }
+  status("Atualizando o item…");
+  await api(`mutation ($b: ID!, $i: ID!, $c: String!, $v: JSON!) { change_column_value(board_id: $b, item_id: $i, column_id: $c, value: $v) { id } }`,
+    { b: String(it.board.id), i: String(it.id), c: colItem.id, v: JSON.stringify({ personsAndTeams: soma }) });
+  status("Item atualizado com as pessoas dos subelementos.", "ok");
+}
+
+function desenharItem(){
+  const q = norm($("busca").value);
+  const l = (ESTADO.itemLista || []).filter(x => !q || norm(x.nome).includes(q) || x.funcoes.some(f => norm(f).includes(q)));
+  if (!(ESTADO.itemLista || []).length){ $("lista").innerHTML = `<div class="vazio">Ninguém atribuído nos subelementos ainda.</div>`; return; }
+  if (!l.length){ $("lista").innerHTML = `<div class="vazio">Ninguém encontrado.</div>`; return; }
+  $("lista").innerHTML = `<div class="secao">Envolvidos no job</div>` + l.map(x => {
+    const ini = x.nome.split(/\s+/).map(p => p[0]).slice(0, 2).join("").toUpperCase();
+    const fun = x.funcoes.length ? ` <span class="funcao">(${esc(x.funcoes.join(", "))})</span>` : "";
+    return `<div class="pessoa" style="cursor:default">${x.foto ? `<img class="foto" src="${esc(x.foto)}" alt="">` : `<span class="foto">${esc(ini)}</span>`}<span class="nome">${esc(x.nome)}${fun}</span></div>`;
+  }).join("");
+}
+
 /* ---------- lista ---------- */
 function linha(u, sel){
   const ini = u.nome.split(/\s+/).map(p => p[0]).slice(0, 2).join("").toUpperCase();
@@ -157,11 +221,11 @@ function desenhar(){
   const resto = ESTADO.usuarios.filter(u => !selIds.has(u.id) && bate(u));
   let h = "";
   if (sel.length) h += `<div class="secao">Neste subelemento</div>` + sel.map(u => linha(u, true)).join("");
-  if (resto.length) h += `<div class="secao">Pessoas</div>` + resto.map(u => linha(u, false)).join("");
+  if (resto.length) h += `<div class="secao">Pessoas sugeridas</div>` + resto.map(u => linha(u, false)).join("");
   if (!h) h = `<div class="vazio">Ninguém encontrado com "${esc($("busca").value)}".</div>`;
   $("lista").innerHTML = h;
 }
-$("busca").addEventListener("input", desenhar);
+$("busca").addEventListener("input", () => ESTADO.modo === "item" ? desenharItem() : desenhar());
 
 $("lista").addEventListener("click", async e => {
   const b = e.target.closest(".pessoa"); if (!b || ESTADO.salvando) return;
